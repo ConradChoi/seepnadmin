@@ -18,10 +18,10 @@ export default function LoginPage() {
 
   // 테스트용 계정 정보
   const testAccounts = [
-    { username: "admin", password: "admin123", role: "최고관리자" },
-    { username: "manager", password: "manager123", role: "관리자" },
-    { username: "operator", password: "operator123", role: "운영자" },
-    { username: "reviewer", password: "reviewer123", role: "검토자" }
+    { username: "admin", password: "admin123", role: "super_admin", roleName: "최고관리자" },
+    { username: "manager", password: "manager123", role: "admin", roleName: "관리자" },
+    { username: "operator", password: "operator123", role: "operator", roleName: "운영자" },
+    { username: "reviewer", password: "reviewer123", role: "reviewer", roleName: "검토자" }
   ];
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -35,12 +35,15 @@ export default function LoginPage() {
     );
     
     if (account) {
-      // 로그인 성공 - 세션 스토리지에 계정 정보 저장
-      sessionStorage.setItem('adminUser', JSON.stringify({
-        username: account.username,
-        role: account.role,
-        loginTime: new Date().toISOString()
-      }));
+      // 로그인 성공 - 세션 스토리지에 계정 정보 저장 (클라이언트에서만)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('adminUser', JSON.stringify({
+          username: account.username,
+          role: account.role,
+          roleName: account.roleName,
+          loginTime: new Date().toISOString()
+        }));
+      }
       
       setTimeout(() => {
         setIsLoading(false);
@@ -55,6 +58,7 @@ export default function LoginPage() {
   const handleTestLogin = (account: typeof testAccounts[0]) => {
     setUsername(account.username);
     setPassword(account.password);
+    setError(""); // 에러 메시지 초기화
   };
 
   return (
@@ -75,7 +79,7 @@ export default function LoginPage() {
             {testAccounts.map((account, index) => (
               <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
                 <div>
-                  <span className="font-medium text-sm">{account.role}</span>
+                  <span className="font-medium text-sm">{account.roleName}</span>
                   <div className="text-xs text-gray-600">
                     {account.username} / {account.password}
                   </div>
@@ -83,7 +87,10 @@ export default function LoginPage() {
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={() => handleTestLogin(account)}
+                  onClick={() => {
+                    console.log('Test login clicked:', account);
+                    handleTestLogin(account);
+                  }}
                   className="text-xs"
                 >
                   사용
