@@ -137,7 +137,6 @@ export default function OperatorManagementPage() {
     { value: "reviewer", label: "검토자" }
   ];
 
-  const departments = ["시스템관리팀", "운영팀", "고객지원팀", "검토팀", "마케팅팀", "개발팀"];
 
   return (
     <AdminLayout>
@@ -210,47 +209,34 @@ export default function OperatorManagementPage() {
                     <DialogDescription>새로운 운영자 계정을 생성하세요</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="username">아이디</Label>
-                        <Input id="username" placeholder="로그인 아이디" />
-                      </div>
-                      <div>
-                        <Label htmlFor="name">이름</Label>
-                        <Input id="name" placeholder="실명" />
-                      </div>
+                    <div>
+                      <Label htmlFor="name">이름</Label>
+                      <Input id="name" placeholder="이름을 입력하세요." />
                     </div>
                     <div>
                       <Label htmlFor="email">이메일</Label>
-                      <Input id="email" type="email" placeholder="이메일 주소" />
+                      <Input id="email" type="email" placeholder="이메일 주소를 입력하세요." />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="role">그룹</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="그룹 선택" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roles.map(role => (
-                              <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="department">소속팀</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="소속팀 선택" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departments.map(dept => (
-                              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div>
+                      <Label htmlFor="phone">연락처</Label>
+                      <Input id="phone" placeholder="010-1234-5678" />
+                    </div>
+                    <div>
+                      <Label htmlFor="role">그룹</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="그룹 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles.map(role => (
+                            <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="username">아이디</Label>
+                      <Input id="username" placeholder="로그인 아이디" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -281,7 +267,6 @@ export default function OperatorManagementPage() {
                   <TableHead>이름</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>그룹</TableHead>
-                  <TableHead>소속팀</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>마지막 로그인</TableHead>
                   <TableHead>등록일</TableHead>
@@ -301,7 +286,6 @@ export default function OperatorManagementPage() {
                        operator.role === "operator" ? "운영자" :
                        operator.role === "reviewer" ? "검토자" : operator.role}
                     </TableCell>
-                    <TableCell>{operator.department}</TableCell>
                     <TableCell>
                       <Button
                         variant={operator.status === "active" ? "default" : "secondary"}
