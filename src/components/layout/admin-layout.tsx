@@ -31,7 +31,7 @@ const allMenuItems: MenuItem[] = [
   { title: "대시보드", href: "/dashboard", icon: "📊" },
   { title: "회원 관리", href: "/members", icon: "👥" },
   { title: "공급사 관리", href: "/suppliers", icon: "🏢" },
-  { title: "표준 품목 관리", href: "/items", icon: "📦" },
+  { title: "표준 품목 카테고리", href: "/items", icon: "📦" },
   { title: "MD 추천 관리", href: "/recommendations", icon: "⭐" },
   { title: "자유 토론방 관리", href: "/discussions", icon: "💬" },
   { title: "인사이트 관리", href: "/insights", icon: "💡" },
