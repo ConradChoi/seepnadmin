@@ -165,10 +165,10 @@ export default function OperatorManagementPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="role">역할</Label>
+                <Label htmlFor="role">그룹</Label>
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="역할 선택" />
+                    <SelectValue placeholder="그룹 선택" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">전체</SelectItem>
@@ -226,10 +226,10 @@ export default function OperatorManagementPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="role">역할</Label>
+                        <Label htmlFor="role">그룹</Label>
                         <Select>
                           <SelectTrigger>
-                            <SelectValue placeholder="역할 선택" />
+                            <SelectValue placeholder="그룹 선택" />
                           </SelectTrigger>
                           <SelectContent>
                             {roles.map(role => (
@@ -280,7 +280,7 @@ export default function OperatorManagementPage() {
                   <TableHead>아이디</TableHead>
                   <TableHead>이름</TableHead>
                   <TableHead>이메일</TableHead>
-                  <TableHead>역할</TableHead>
+                  <TableHead>그룹</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>마지막 로그인</TableHead>
@@ -295,7 +295,12 @@ export default function OperatorManagementPage() {
                     <TableCell className="font-medium">{maskUsername(operator.username)}</TableCell>
                     <TableCell>{maskName(operator.name)}</TableCell>
                     <TableCell>{maskEmail(operator.email)}</TableCell>
-                    <TableCell>{getRoleBadge(operator.role)}</TableCell>
+                    <TableCell>
+                      {operator.role === "super_admin" ? "최고관리자" :
+                       operator.role === "admin" ? "관리자" :
+                       operator.role === "operator" ? "운영자" :
+                       operator.role === "reviewer" ? "검토자" : operator.role}
+                    </TableCell>
                     <TableCell>{operator.department}</TableCell>
                     <TableCell>
                       <Button
@@ -314,7 +319,6 @@ export default function OperatorManagementPage() {
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm">상세</Button>
                         <Button variant="outline" size="sm">수정</Button>
-                        <Button variant="outline" size="sm">권한설정</Button>
                       </div>
                     </TableCell>
                   </TableRow>
