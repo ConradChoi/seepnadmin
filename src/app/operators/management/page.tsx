@@ -114,20 +114,6 @@ export default function OperatorManagementPage() {
     return matchesSearch && matchesRole;
   });
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case "super_admin":
-        return <Badge variant="destructive">최고관리자</Badge>;
-      case "admin":
-        return <Badge variant="default">관리자</Badge>;
-      case "operator":
-        return <Badge variant="secondary">운영자</Badge>;
-      case "reviewer":
-        return <Badge variant="outline">검토자</Badge>;
-      default:
-        return <Badge variant="outline">{role}</Badge>;
-    }
-  };
 
 
   const roles = [
