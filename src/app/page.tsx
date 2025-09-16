@@ -9,10 +9,13 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("HomePage: loading =", loading, "user =", user);
     if (!loading) {
       if (user) {
+        console.log("HomePage: Redirecting to dashboard");
         router.push("/dashboard");
       } else {
+        console.log("HomePage: Redirecting to login");
         router.push("/login");
       }
     }

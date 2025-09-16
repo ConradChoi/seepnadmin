@@ -28,15 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 클라이언트에서만 실행
     if (typeof window !== "undefined") {
+      console.log("AuthContext: Initializing...");
       const savedUser = localStorage.getItem("currentUser");
       if (savedUser) {
         try {
+          console.log("AuthContext: Found saved user:", savedUser);
           setUser(JSON.parse(savedUser));
         } catch (error) {
           console.error("Error parsing saved user:", error);
           localStorage.removeItem("currentUser");
         }
+      } else {
+        console.log("AuthContext: No saved user found");
       }
+      console.log("AuthContext: Setting loading to false");
       setLoading(false);
     }
   }, []);
