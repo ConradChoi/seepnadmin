@@ -47,7 +47,12 @@ export const getOperators = async (): Promise<Operator[]> => {
   } catch (error) {
     console.error('Error getting operators:', error);
     // Firebase 연결 오류 시 빈 배열 반환
-    if (error instanceof Error && (error.message.includes('Firestore') || error.message.includes('network'))) {
+    if (error instanceof Error && (
+      error.message.includes('Firestore') || 
+      error.message.includes('network') ||
+      error.message.includes('unavailable') ||
+      error.message.includes('Could not reach Cloud Firestore')
+    )) {
       console.warn('Firestore connection failed, returning empty array');
       return [];
     }

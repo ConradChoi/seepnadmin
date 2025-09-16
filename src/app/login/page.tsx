@@ -34,7 +34,7 @@ export default function LoginPage() {
       // Firebase 연결 오류 확인
       if (operators.length === 0) {
         console.warn("운영자 데이터를 가져올 수 없습니다. Firebase 연결을 확인해주세요.");
-        setError("데이터베이스 연결에 실패했습니다. 관리자에게 문의하세요.");
+        setError("데이터베이스 연결에 실패했습니다. 네트워크 연결을 확인하거나 관리자에게 문의하세요.");
         return;
       }
       

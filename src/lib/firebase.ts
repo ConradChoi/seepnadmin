@@ -15,8 +15,16 @@ let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 
 try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  db = getFirestore(app);
+  // Firebase 설정이 완전한지 확인
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    db = getFirestore(app);
+    console.log('Firebase initialized successfully');
+  } else {
+    console.warn('Firebase configuration is incomplete, skipping initialization');
+    app = null;
+    db = null;
+  }
 } catch (error) {
   console.error('Firebase initialization failed:', error);
   // 빌드 시 오류를 방지하기 위해 null로 설정
