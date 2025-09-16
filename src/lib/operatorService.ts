@@ -40,6 +40,11 @@ export const getOperators = async (): Promise<Operator[]> => {
     })) as Operator[];
   } catch (error) {
     console.error('Error getting operators:', error);
+    // Firebase 연결 오류 시 빈 배열 반환
+    if (error instanceof Error && (error.message.includes('Firestore') || error.message.includes('network'))) {
+      console.warn('Firestore connection failed, returning empty array');
+      return [];
+    }
     throw error;
   }
 };

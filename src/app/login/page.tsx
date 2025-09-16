@@ -31,6 +31,13 @@ export default function LoginPage() {
       console.log("입력한 아이디:", username);
       console.log("입력한 비밀번호:", password);
       
+      // Firebase 연결 오류 확인
+      if (operators.length === 0) {
+        console.warn("운영자 데이터를 가져올 수 없습니다. Firebase 연결을 확인해주세요.");
+        setError("데이터베이스 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      
       // 사용자 인증
       const operator = operators.find(
         (op: Operator) => 
