@@ -43,6 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       console.log("AuthContext: Setting loading to false");
       setLoading(false);
+    } else {
+      // 서버 사이드에서는 즉시 로딩 완료
+      console.log("AuthContext: Server side, setting loading to false");
+      setLoading(false);
     }
   }, []);
 
