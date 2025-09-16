@@ -41,15 +41,15 @@ if (typeof window !== 'undefined' && (!firebaseConfig.apiKey || !firebaseConfig.
   // throw new Error('Firebase configuration is incomplete');
 }
 
-// 개발 환경에서 에뮬레이터 연결 (선택사항)
-if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && db) {
-  try {
-    // 에뮬레이터 연결 시도 (이미 연결된 경우 오류 발생하지만 무시)
-    connectFirestoreEmulator(db, 'localhost', 8080);
-  } catch {
-    // 에뮬레이터 연결 실패는 무시 (프로덕션 환경에서는 정상)
-    console.log('Firestore emulator not available, using production database');
-  }
-}
+// 개발 환경에서 에뮬레이터 연결 (선택사항) - 현재 비활성화
+// if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && db) {
+//   try {
+//     // 에뮬레이터 연결 시도 (이미 연결된 경우 오류 발생하지만 무시)
+//     connectFirestoreEmulator(db, 'localhost', 8080);
+//   } catch {
+//     // 에뮬레이터 연결 실패는 무시 (프로덕션 환경에서는 정상)
+//     console.log('Firestore emulator not available, using production database');
+//   }
+// }
 
 export default app;
