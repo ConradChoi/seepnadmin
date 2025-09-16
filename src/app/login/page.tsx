@@ -31,45 +31,11 @@ export default function LoginPage() {
       console.log("입력한 아이디:", username);
       console.log("입력한 비밀번호:", password);
       
-      // Firebase 연결 오류 확인 - 임시 테스트 계정 제공
+      // Firebase 연결 오류 확인
       if (operators.length === 0) {
         console.warn("운영자 데이터를 가져올 수 없습니다. Firebase 연결을 확인해주세요.");
-        console.log("임시 테스트 계정을 사용합니다.");
-        
-        // 임시 테스트 계정
-        const testOperator = {
-          id: "test-001",
-          username: "ylia",
-          password: "whdgnsl2ek!@#$",
-          name: "테스트 관리자",
-          email: "test@example.com",
-          role: "test-group-id",
-          department: "개발팀",
-          status: "active" as const,
-          lastLogin: new Date().toISOString(),
-          createDate: new Date().toISOString()
-        };
-        
-        // 테스트 계정으로 인증 시도
-        if (username === testOperator.username && password === testOperator.password) {
-          console.log("테스트 계정으로 로그인 성공");
-          const userData = {
-            id: testOperator.id,
-            username: testOperator.username,
-            name: testOperator.name,
-            email: testOperator.email,
-            role: testOperator.role,
-            department: testOperator.department,
-            lastLogin: testOperator.lastLogin
-          };
-          
-          login(userData);
-          router.push("/dashboard");
-          return;
-        } else {
-          setError("데이터베이스 연결에 실패했습니다. 테스트 계정: ylia / whdgnsl2ek!@#$");
-          return;
-        }
+        setError("데이터베이스 연결에 실패했습니다. 네트워크 연결을 확인하거나 관리자에게 문의하세요.");
+        return;
       }
       
       // 사용자 인증

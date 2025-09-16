@@ -65,11 +65,6 @@ const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string, menuPe
       return menuItems || [];
     }
 
-    // 테스트 계정인 경우 모든 메뉴 표시
-    if (userRole === 'test-group-id') {
-      console.log('Test account detected, showing all menus');
-      return menuItems;
-    }
 
     // 사용자의 그룹에 해당하는 권한 찾기
     const userPermissions = menuPermissionGroups.find(group => group.groupId === userRole);
@@ -316,9 +311,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }, [user]);
 
   // 사용자 그룹 이름 가져오기
-  const userGroupName = user?.role ? 
-    (user.role === 'test-group-id' ? '테스트 관리자' : groups.find(group => group.id === user.role)?.name || user.role) 
-    : '';
+  const userGroupName = user?.role ? groups.find(group => group.id === user.role)?.name || user.role : '';
 
   // 권한에 따라 필터링된 메뉴
   const menuItems = user && user.role && !loading 
