@@ -16,12 +16,6 @@ interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-interface AdminUser {
-  username: string;
-  role: string;
-  roleName: string;
-  loginTime: string;
-}
 
 interface MenuItem {
   title: string;

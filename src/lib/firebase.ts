@@ -25,11 +25,9 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 // 개발 환경에서 에뮬레이터 연결 (선택사항)
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   try {
-    // 에뮬레이터가 이미 연결되었는지 확인
-    if (!db._delegate._settings?.host?.includes('localhost')) {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-    }
-  } catch (error) {
+    // 에뮬레이터 연결 시도 (이미 연결된 경우 오류 발생하지만 무시)
+    connectFirestoreEmulator(db, 'localhost', 8080);
+  } catch {
     // 에뮬레이터 연결 실패는 무시 (프로덕션 환경에서는 정상)
     console.log('Firestore emulator not available, using production database');
   }
