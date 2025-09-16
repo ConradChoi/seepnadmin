@@ -28,8 +28,9 @@ export { db };
 
 // Firebase 설정 검증 (클라이언트 사이드에서만 실행)
 if (typeof window !== 'undefined' && (!firebaseConfig.apiKey || !firebaseConfig.projectId)) {
-  console.error('Firebase configuration is missing. Please check your environment variables.');
-  throw new Error('Firebase configuration is incomplete');
+  console.warn('Firebase configuration is missing. Please check your environment variables.');
+  // 오류를 던지지 않고 경고만 표시
+  // throw new Error('Firebase configuration is incomplete');
 }
 
 // 개발 환경에서 에뮬레이터 연결 (선택사항)
