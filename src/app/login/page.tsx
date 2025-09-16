@@ -76,7 +76,13 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setError("로그인 중 오류가 발생했습니다.");
+      
+      // Firebase 연결 오류인지 확인
+      if (error instanceof Error && error.message.includes('Firebase')) {
+        setError("데이터베이스 연결에 실패했습니다. 관리자에게 문의하세요.");
+      } else {
+        setError("로그인 중 오류가 발생했습니다.");
+      }
     } finally {
       setLoading(false);
     }
