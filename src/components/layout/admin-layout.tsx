@@ -7,7 +7,10 @@ import { Menu, LogOut, User, ChevronRight, ChevronLeft, PanelLeft } from "lucide
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { getGroupPermissions } from "@/lib/groups-data";
+import { useAuth } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { getMenuPermissionGroups, MenuPermissionGroup } from "@/lib/menuPermissionService";
+import { getGroups, Group } from "@/lib/groupService";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -62,17 +65,23 @@ const allMenuItems: MenuItem[] = [
 ];
 
 // 권한에 따라 메뉴를 필터링하는 함수
-const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string): MenuItem[] => {
+const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string, menuPermissionGroups: MenuPermissionGroup[]): MenuItem[] => {
   try {
-    if (!userRole || !menuItems) {
+    if (!userRole || !menuItems || !menuPermissionGroups) {
       return menuItems || [];
     }
 
-    const permissions = getGroupPermissions(userRole.toUpperCase()) as Record<string, { create: boolean; view: boolean; edit: boolean; delete: boolean }>;
+    // 사용자의 그룹에 해당하는 권한 찾기
+    const userPermissions = menuPermissionGroups.find(group => group.groupId === userRole);
     
-    if (!permissions) {
-      return menuItems;
+    if (!userPermissions) {
+      console.log('No permissions found for user role:', userRole);
+      console.log('Available permission groups:', menuPermissionGroups.map(pg => ({ groupId: pg.groupId, groupName: pg.groupName })));
+      return menuItems; // 권한이 없으면 모든 메뉴 표시 (fallback)
     }
+    
+    const permissions = userPermissions.permissions;
+    console.log('User permissions for role', userRole, ':', permissions);
     
     return menuItems.filter(menuItem => {
       if (!menuItem || !menuItem.href) {
@@ -80,8 +89,10 @@ const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string): MenuI
       }
 
       // 메뉴 경로를 권한 키로 변환
-      const menuKey = menuItem.href.replace('/', '') || 'dashboard';
+      const menuKey = getMenuKeyFromPath(menuItem.href);
       const menuPermission = permissions[menuKey];
+      
+      console.log(`Menu: ${menuItem.title} (${menuItem.href}) -> Key: ${menuKey}, Permission:`, menuPermission);
       
       // view 권한이 있으면 메뉴 표시
       if (menuPermission && menuPermission.view) {
@@ -91,7 +102,7 @@ const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string): MenuI
             if (!subItem || !subItem.href) {
               return false;
             }
-            const subMenuKey = subItem.href.replace('/', '').replace('/', '_');
+            const subMenuKey = getMenuKeyFromPath(subItem.href);
             const subMenuPermission = permissions[subMenuKey];
             return subMenuPermission && subMenuPermission.view;
           });
@@ -114,6 +125,33 @@ const filterMenuByPermissions = (menuItems: MenuItem[], userRole: string): MenuI
     // 에러 발생 시 모든 메뉴 반환 (fallback)
     return menuItems || [];
   }
+};
+
+// 경로를 메뉴 키로 변환하는 함수 (메뉴 권한 관리 페이지의 키와 일치)
+const getMenuKeyFromPath = (path: string): string => {
+  const pathMap: Record<string, string> = {
+    '/dashboard': 'dashboard',
+    '/members': 'members',
+    '/suppliers': 'suppliers',
+    '/items': 'items',
+    '/recommendations': 'recommendations',
+    '/discussions': 'discussions',
+    '/insights': 'insights',
+    '/inquiries': 'inquiries',
+    '/notices': 'notices',
+    '/faqs': 'faqs',
+    '/banners': 'banners',
+    '/keywords': 'keywords',
+    '/keywords/management': 'keywords',
+    '/keywords/popular': 'keywords',
+    '/statistics': 'statistics',
+    '/operators': 'operators',
+    '/operators/management': 'operators',
+    '/operators/groups': 'groups',
+    '/operators/permissions': 'groups' // 메뉴 권한 관리는 groups 키 사용
+  };
+  
+  return pathMap[path] || path.replace('/', '');
 };
 
 // 커스텀 사이드바 컴포넌트
@@ -248,58 +286,68 @@ function CustomSidebar({
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [menuPermissionGroups, setMenuPermissionGroups] = useState<MenuPermissionGroup[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  // 메뉴 권한 데이터 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [permissions, groupsData] = await Promise.all([
+          getMenuPermissionGroups(),
+          getGroups()
+        ]);
+        setMenuPermissionGroups(permissions);
+        setGroups(groupsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  // 사용자 그룹 이름 가져오기
+  const userGroupName = user?.role ? groups.find(group => group.id === user.role)?.name || user.role : '';
+
   // 권한에 따라 필터링된 메뉴
-  const menuItems = adminUser && adminUser.role ? filterMenuByPermissions(allMenuItems, adminUser.role) : allMenuItems;
+  const menuItems = user && user.role && !loading 
+    ? filterMenuByPermissions(allMenuItems, user.role, menuPermissionGroups) 
+    : allMenuItems;
 
   const handleLogout = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('adminUser');
-    }
-    setAdminUser(null);
-    router.push("/");
-  }, [router]);
+    logout();
+    router.push("/login");
+  }, [logout, router]);
 
   const toggleDesktopSidebar = useCallback(() => {
     setIsDesktopSidebarCollapsed(prev => !prev);
   }, []);
 
-  useEffect(() => {
-    // 클라이언트에서만 실행
-    if (typeof window !== 'undefined') {
-      // 세션 스토리지에서 로그인 정보 확인
-      const userData = sessionStorage.getItem('adminUser');
-      if (userData) {
-        try {
-          setAdminUser(JSON.parse(userData));
-        } catch (error) {
-          console.error('Failed to parse admin user data:', error);
-          handleLogout();
-        }
-      } else {
-        // 로그인 정보가 없으면 로그인 페이지로 리다이렉트
-        router.push("/");
-      }
-    }
-  }, [router, handleLogout]);
 
-  // 로그인 정보가 없으면 로딩 표시
-  if (!adminUser) {
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">로딩 중...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">메뉴 권한을 로딩 중...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
@@ -339,8 +387,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <User className="h-4 w-4" />
-              <span className="font-medium">{adminUser.username}</span>
-              <Badge variant="outline">{adminUser.role}</Badge>
+              <span className="font-medium">{user?.username}</span>
+              <Badge variant="outline">{userGroupName}</Badge>
             </div>
             <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2">
               <LogOut className="h-4 w-4" />
@@ -369,6 +417,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {children}
         </main>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

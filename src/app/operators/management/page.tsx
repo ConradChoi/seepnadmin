@@ -1,86 +1,152 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  getOperators, 
+  createOperator, 
+  toggleOperatorStatus,
+  deleteOperator,
+  Operator 
+} from "@/lib/operatorService";
+import { getGroups, Group } from "@/lib/groupService";
 
 export default function OperatorManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
-  const [operators, setOperators] = useState([
-    {
-      id: 5,
-      username: "newadmin",
-      name: "정신규관리자",
-      email: "newadmin@example.com",
-      role: "admin",
-      department: "마케팅팀",
-      status: "active",
-      lastLogin: "2024-01-22 16:45:30",
-      createDate: "2024-01-22 14:30:25"
-    },
-    {
-      id: 4,
-      username: "reviewer1",
-      name: "최검토자",
-      email: "reviewer1@example.com",
-      role: "reviewer",
-      department: "검토팀",
-      status: "inactive",
-      lastLogin: "2024-01-20 11:22:18",
-      createDate: "2024-01-20 10:15:30"
-    },
-    {
-      id: 3,
-      username: "operator1",
-      name: "박운영자",
-      email: "operator1@example.com",
-      role: "operator",
-      department: "고객지원팀",
-      status: "active",
-      lastLogin: "2024-01-18 16:45:12",
-      createDate: "2024-01-18 14:20:45"
-    },
-    {
-      id: 2,
-      username: "manager1",
-      name: "김관리자",
-      email: "manager1@example.com",
-      role: "admin",
-      department: "개발팀",
-      status: "active",
-      lastLogin: "2024-01-15 09:30:22",
-      createDate: "2024-01-15 08:45:10"
-    },
-    {
-      id: 1,
-      username: "superadmin",
-      name: "최고관리자",
-      email: "superadmin@example.com",
-      role: "super_admin",
-      department: "관리팀",
-      status: "active",
-      lastLogin: "2024-01-10 14:20:15",
-      createDate: "2024-01-10 10:00:00"
-    }
-  ]);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    username: "",
+    name: "",
+    email: "",
+    password: "",
+    role: "",
+    department: "",
+    status: "active" as "active" | "inactive"
+  });
 
-  const toggleOperatorStatus = (id: number) => {
-    setOperators(prev => 
-      prev.map(operator => 
-        operator.id === id 
-          ? { ...operator, status: operator.status === "active" ? "inactive" : "active" }
-          : operator
-      )
-    );
+  // 데이터 로딩
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [operatorsData, groupsData] = await Promise.all([
+        getOperators(),
+        getGroups()
+      ]);
+      setOperators(operatorsData);
+      setGroups(groupsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOperators = async () => {
+    try {
+      const operatorsData = await getOperators();
+      setOperators(operatorsData);
+    } catch (error) {
+      console.error('Error loading operators:', error);
+    }
+  };
+
+  // 상태 토글 핸들러
+  const handleToggleStatus = async (id: string, currentStatus: 'active' | 'inactive') => {
+    try {
+      await toggleOperatorStatus(id, currentStatus);
+      await loadOperators(); // 데이터 새로고침
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    }
+  };
+
+  // 폼 제출 핸들러
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createOperator(formData);
+      
+      // 폼 초기화
+      setFormData({
+        username: "",
+        name: "",
+        email: "",
+        password: "",
+        role: "",
+        department: "",
+        status: "active"
+      });
+      setIsDialogOpen(false);
+      await loadOperators(); // 데이터 새로고침
+    } catch (error) {
+      console.error('Error creating operator:', error);
+    }
+  };
+
+  // 테스트용 운영자 생성 함수
+  const createTestOperator = async () => {
+    try {
+      // 관리자 그룹 찾기
+      const adminGroup = groups.find(g => g.name === "관리자");
+      if (!adminGroup) {
+        alert("먼저 '관리자' 그룹을 생성해주세요.");
+        return;
+      }
+
+      const testOperator = {
+        username: "admin",
+        name: "관리자",
+        email: "admin@example.com",
+        password: "admin123",
+        role: adminGroup.id!,
+        department: "IT",
+        status: "active" as "active" | "inactive"
+      };
+      
+      await createOperator(testOperator);
+      await loadData();
+      alert("테스트 운영자가 생성되었습니다. 아이디: admin, 비밀번호: admin123");
+    } catch (error) {
+      console.error("Error creating test operator:", error);
+      alert("테스트 운영자 생성 중 오류가 발생했습니다.");
+    }
+  };
+
+  // 테스트용 운영자 삭제 함수
+  const deleteTestOperator = async () => {
+    try {
+      // admin 계정 찾기
+      const adminOperator = operators.find(op => op.username === "admin");
+      if (!adminOperator) {
+        alert("삭제할 테스트 계정(admin)을 찾을 수 없습니다.");
+        return;
+      }
+
+      if (confirm("테스트용 계정(admin)을 삭제하시겠습니까?")) {
+        await deleteOperator(adminOperator.id!);
+        await loadData();
+        alert("테스트용 계정이 삭제되었습니다.");
+      }
+    } catch (error) {
+      console.error("Error deleting test operator:", error);
+      alert("테스트 계정 삭제 중 오류가 발생했습니다.");
+    }
   };
 
   // 마스킹 함수들
@@ -116,12 +182,13 @@ export default function OperatorManagementPage() {
 
 
 
-  const roles = [
-    { value: "super_admin", label: "최고관리자" },
-    { value: "admin", label: "관리자" },
-    { value: "operator", label: "운영자" },
-    { value: "reviewer", label: "검토자" }
-  ];
+  // 활성 그룹을 기반으로 roles 생성
+  const roles = groups
+    .filter(group => group.status === "active")
+    .map(group => ({
+      value: group.id || "",
+      label: group.name
+    }));
 
 
   return (
@@ -185,31 +252,78 @@ export default function OperatorManagementPage() {
                 >
                   {showPersonalInfo ? "개인정보 숨기기" : "개인정보보기"}
                 </Button>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button>신규 운영자 등록</Button>
-                  </DialogTrigger>
+              <Button 
+                onClick={createTestOperator}
+                variant="outline"
+                className="mr-2"
+              >
+                테스트 운영자 생성
+              </Button>
+              <Button 
+                onClick={deleteTestOperator}
+                variant="destructive"
+                className="mr-2"
+              >
+                테스트 계정 삭제
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>신규 운영자 등록</Button>
+                </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>신규 운영자 등록</DialogTitle>
                     <DialogDescription>새로운 운영자 계정을 생성하세요</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                       <Label htmlFor="name">이름</Label>
-                      <Input id="name" placeholder="이름을 입력하세요." />
+                      <Input 
+                        id="name" 
+                        placeholder="이름을 입력하세요." 
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        required
+                      />
                     </div>
                     <div>
                       <Label htmlFor="email">이메일</Label>
-                      <Input id="email" type="email" placeholder="이메일 주소를 입력하세요." />
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        placeholder="이메일 주소를 입력하세요." 
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="phone">연락처</Label>
-                      <Input id="phone" placeholder="010-1234-5678" />
+                      <Label htmlFor="username">아이디</Label>
+                      <Input 
+                        id="username" 
+                        placeholder="로그인 아이디" 
+                        value={formData.username}
+                        onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="password">비밀번호</Label>
+                      <Input 
+                        id="password" 
+                        type="password"
+                        placeholder="비밀번호를 입력하세요" 
+                        value={formData.password}
+                        onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                        required
+                      />
                     </div>
                     <div>
                       <Label htmlFor="role">그룹</Label>
-                      <Select>
+                      <Select 
+                        value={formData.role}
+                        onValueChange={(value: string) => setFormData(prev => ({ ...prev, role: value }))}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="그룹 선택" />
                         </SelectTrigger>
@@ -221,31 +335,50 @@ export default function OperatorManagementPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="username">아이디</Label>
-                      <Input id="username" placeholder="로그인 아이디" />
+                      <Label htmlFor="department">소속팀</Label>
+                      <Input 
+                        id="department" 
+                        placeholder="소속팀을 입력하세요" 
+                        value={formData.department}
+                        onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                        required
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="password">비밀번호</Label>
-                        <Input id="password" type="password" placeholder="초기 비밀번호" />
-                      </div>
-                      <div>
-                        <Label htmlFor="confirmPassword">비밀번호 확인</Label>
-                        <Input id="confirmPassword" type="password" placeholder="비밀번호 재입력" />
-                      </div>
+                    <div>
+                      <Label htmlFor="status">상태</Label>
+                      <Select 
+                        value={formData.status}
+                        onValueChange={(value: "active" | "inactive") => setFormData(prev => ({ ...prev, status: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="상태 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">활성</SelectItem>
+                          <SelectItem value="inactive">비활성</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline">취소</Button>
-                      <Button>등록</Button>
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
+                      <Button type="submit">등록</Button>
                     </div>
-                  </div>
+                  </form>
                 </DialogContent>
                 </Dialog>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">로딩 중...</p>
+                </div>
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>NO</TableHead>
@@ -267,16 +400,16 @@ export default function OperatorManagementPage() {
                     <TableCell>{maskName(operator.name)}</TableCell>
                     <TableCell>{maskEmail(operator.email)}</TableCell>
                     <TableCell>
-                      {operator.role === "super_admin" ? "최고관리자" :
-                       operator.role === "admin" ? "관리자" :
-                       operator.role === "operator" ? "운영자" :
-                       operator.role === "reviewer" ? "검토자" : operator.role}
+                      {(() => {
+                        const group = groups.find(g => g.id === operator.role);
+                        return group ? group.name : operator.role;
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Button
                         variant={operator.status === "active" ? "default" : "secondary"}
                         size="sm"
-                        onClick={() => toggleOperatorStatus(operator.id)}
+                        onClick={() => handleToggleStatus(operator.id!, operator.status)}
                         disabled={operator.role === "super_admin"}
                         className="min-w-[80px]"
                       >
@@ -295,6 +428,7 @@ export default function OperatorManagementPage() {
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
       </div>

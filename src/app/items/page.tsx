@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,61 +9,29 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  getCategories, 
+  createCategory, 
+  toggleCategoryStatus, 
+  generateCategoryCode,
+  CategoryItem 
+} from "@/lib/categoryService";
 
 export default function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [category1Depth, setCategory1Depth] = useState("all");
   const [category2Depth, setCategory2Depth] = useState("all");
   const [category3Depth, setCategory3Depth] = useState("all");
-
-  // 샘플 데이터 (최근 등록자가 위로 오도록 정렬 - 등록일 기준 내림차순)
-  const [items, setItems] = useState([
-    {
-      id: 5,
-      categoryCode: "MED001",
-      category1Depth: "의료용품",
-      category2Depth: "소모품",
-      category3Depth: "마스크",
-      status: "active",
-      createDate: "2024-01-22 10:15:30"
-    },
-    {
-      id: 4,
-      categoryCode: "CON001",
-      category1Depth: "건축자재",
-      category2Depth: "구조재",
-      category3Depth: "철근",
-      status: "active",
-      createDate: "2024-01-20 14:30:25"
-    },
-    {
-      id: 3,
-      categoryCode: "CHEM001",
-      category1Depth: "화학제품",
-      category2Depth: "원료",
-      category3Depth: "고분자",
-      status: "inactive",
-      createDate: "2024-01-18 11:22:18"
-    },
-    {
-      id: 2,
-      categoryCode: "MOT001",
-      category1Depth: "기계장비",
-      category2Depth: "산업용",
-      category3Depth: "모터",
-      status: "active",
-      createDate: "2024-01-15 16:45:12"
-    },
-    {
-      id: 1,
-      categoryCode: "SEM001",
-      category1Depth: "전자제품",
-      category2Depth: "컴퓨터",
-      category3Depth: "데스크톱",
-      status: "active",
-      createDate: "2024-01-10 13:15:30"
-    }
-  ]);
+  const [items, setItems] = useState<CategoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    categoryName: "",
+    category1Depth: "",
+    category2Depth: "",
+    category3Depth: "",
+    status: "active" as "active" | "inactive"
+  });
 
   // 카테고리 선택 핸들러들
   const handleCategory1DepthChange = (value: string) => {
@@ -89,19 +57,70 @@ export default function ItemsPage() {
     setCategory3Depth("all");
   };
 
+  // 데이터 로딩
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const categories = await getCategories();
+      setItems(categories);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 상태 토글 핸들러
-  const toggleItemStatus = (id: number) => {
-    setItems(prev => 
-      prev.map(item => 
-        item.id === id 
-          ? { ...item, status: item.status === "active" ? "inactive" : "active" }
-          : item
-      )
-    );
+  const handleToggleStatus = async (id: string, currentStatus: 'active' | 'inactive') => {
+    try {
+      await toggleCategoryStatus(id, currentStatus);
+      await loadCategories(); // 데이터 새로고침
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    }
+  };
+
+  // 폼 제출 핸들러
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const categoryCode = await generateCategoryCode(
+        formData.category1Depth,
+        formData.category2Depth,
+        formData.category3Depth
+      );
+
+      await createCategory({
+        categoryCode,
+        categoryName: formData.categoryName,
+        category1Depth: formData.category1Depth,
+        category2Depth: formData.category2Depth,
+        category3Depth: formData.category3Depth,
+        status: formData.status
+      });
+
+      // 폼 초기화
+      setFormData({
+        categoryName: "",
+        category1Depth: "",
+        category2Depth: "",
+        category3Depth: "",
+        status: "active"
+      });
+      setIsDialogOpen(false);
+      await loadCategories(); // 데이터 새로고침
+    } catch (error) {
+      console.error('Error creating category:', error);
+    }
   };
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.categoryCode.includes(searchTerm) || 
+                         item.categoryName.includes(searchTerm) ||
                          item.category1Depth.includes(searchTerm) || 
                          item.category2Depth.includes(searchTerm) || 
                          item.category3Depth.includes(searchTerm);
@@ -251,7 +270,7 @@ export default function ItemsPage() {
                 <CardTitle>품목 카테고리</CardTitle>
                 <CardDescription>총 {filteredItems.length}개의 품목</CardDescription>
               </div>
-              <Dialog>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button>카테고리 등록</Button>
                 </DialogTrigger>
@@ -260,19 +279,28 @@ export default function ItemsPage() {
                     <DialogTitle>카테고리 등록</DialogTitle>
                     <DialogDescription>새로운 카테고리를 등록하세요</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                       <Label htmlFor="categoryCode">카테고리 코드(자동생성)</Label>
                       <Input id="categoryCode" placeholder="자동으로 생성됩니다" disabled />
                     </div>
                     <div>
                       <Label htmlFor="categoryName">카테고리명</Label>
-                      <Input id="categoryName" placeholder="카테고리명을 입력하세요" />
+                      <Input 
+                        id="categoryName" 
+                        placeholder="카테고리명을 입력하세요" 
+                        value={formData.categoryName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, categoryName: e.target.value }))}
+                        required
+                      />
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label htmlFor="newCategory1">1Depth 선택</Label>
-                        <Select>
+                        <Select 
+                          value={formData.category1Depth}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, category1Depth: value, category2Depth: "", category3Depth: "" }))}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="1Depth 선택" />
                           </SelectTrigger>
@@ -285,30 +313,45 @@ export default function ItemsPage() {
                       </div>
                       <div>
                         <Label htmlFor="newCategory2">2Depth 선택</Label>
-                        <Select disabled>
+                        <Select 
+                          value={formData.category2Depth}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, category2Depth: value, category3Depth: "" }))}
+                          disabled={!formData.category1Depth}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="2Depth 선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">선택하세요</SelectItem>
+                            {formData.category1Depth ? Object.keys(categoryData[formData.category1Depth] || {}).map(category => (
+                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            )) : null}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
                         <Label htmlFor="newCategory3">3Depth 선택</Label>
-                        <Select disabled>
+                        <Select 
+                          value={formData.category3Depth}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, category3Depth: value }))}
+                          disabled={!formData.category2Depth}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="3Depth 선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">선택하세요</SelectItem>
+                            {formData.category2Depth ? (categoryData[formData.category1Depth]?.[formData.category2Depth] || []).map(category => (
+                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            )) : null}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                     <div>
                       <Label htmlFor="status">상태 선택</Label>
-                      <Select>
+                      <Select 
+                        value={formData.status}
+                        onValueChange={(value: "active" | "inactive") => setFormData(prev => ({ ...prev, status: value }))}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="상태를 선택하세요" />
                         </SelectTrigger>
@@ -319,55 +362,66 @@ export default function ItemsPage() {
                       </Select>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline">취소</Button>
-                      <Button>등록</Button>
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
+                      <Button type="submit">등록</Button>
                     </div>
-                  </div>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>카테고리 코드</TableHead>
-                  <TableHead>1Depth</TableHead>
-                  <TableHead>2Depth</TableHead>
-                  <TableHead>3Depth</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>등록일</TableHead>
-                  <TableHead>작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.categoryCode}</TableCell>
-                    <TableCell>{item.category1Depth}</TableCell>
-                    <TableCell>{item.category2Depth}</TableCell>
-                    <TableCell>{item.category3Depth}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant={item.status === "active" ? "default" : "secondary"}
-                        size="sm"
-                        onClick={() => toggleItemStatus(item.id)}
-                        className="min-w-[80px]"
-                      >
-                        {item.status === "active" ? "활성" : "비활성"}
-                      </Button>
-                    </TableCell>
-                    <TableCell>{item.createDate}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">상세</Button>
-                        <Button variant="outline" size="sm">수정</Button>
-                      </div>
-                    </TableCell>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">로딩 중...</p>
+                </div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>카테고리 코드</TableHead>
+                    <TableHead>카테고리명</TableHead>
+                    <TableHead>1Depth</TableHead>
+                    <TableHead>2Depth</TableHead>
+                    <TableHead>3Depth</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>등록일</TableHead>
+                    <TableHead>작업</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.categoryCode}</TableCell>
+                      <TableCell>{item.categoryName}</TableCell>
+                      <TableCell>{item.category1Depth}</TableCell>
+                      <TableCell>{item.category2Depth}</TableCell>
+                      <TableCell>{item.category3Depth}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant={item.status === "active" ? "default" : "secondary"}
+                          size="sm"
+                          onClick={() => handleToggleStatus(item.id!, item.status)}
+                          className="min-w-[80px]"
+                        >
+                          {item.status === "active" ? "활성" : "비활성"}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{item.createDate}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">상세</Button>
+                          <Button variant="outline" size="sm">수정</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
