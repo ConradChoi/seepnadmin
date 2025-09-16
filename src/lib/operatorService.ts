@@ -30,6 +30,12 @@ const COLLECTION_NAME = 'operators';
 // 모든 운영자 조회
 export const getOperators = async (): Promise<Operator[]> => {
   try {
+    // Firebase가 초기화되지 않은 경우 빈 배열 반환
+    if (!db) {
+      console.warn('Firebase not initialized, returning empty array');
+      return [];
+    }
+
     const operatorsRef = collection(db, COLLECTION_NAME);
     const q = query(operatorsRef, orderBy('createDate', 'desc'));
     const querySnapshot = await getDocs(q);
@@ -52,6 +58,11 @@ export const getOperators = async (): Promise<Operator[]> => {
 // 운영자 생성
 export const createOperator = async (operatorData: Omit<Operator, 'id' | 'createDate' | 'lastLogin'>): Promise<string> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const operatorsRef = collection(db, COLLECTION_NAME);
     const newOperator = {
       ...operatorData,
@@ -71,6 +82,11 @@ export const createOperator = async (operatorData: Omit<Operator, 'id' | 'create
 // 운영자 업데이트
 export const updateOperator = async (id: string, operatorData: Partial<Operator>): Promise<void> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const operatorRef = doc(db, COLLECTION_NAME, id);
     const updateData = {
       ...operatorData,
@@ -87,6 +103,11 @@ export const updateOperator = async (id: string, operatorData: Partial<Operator>
 // 운영자 삭제
 export const deleteOperator = async (id: string): Promise<void> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const operatorRef = doc(db, COLLECTION_NAME, id);
     await deleteDoc(operatorRef);
   } catch (error) {
@@ -98,6 +119,11 @@ export const deleteOperator = async (id: string): Promise<void> => {
 // 운영자 상태 토글
 export const toggleOperatorStatus = async (id: string, currentStatus: 'active' | 'inactive'): Promise<void> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     await updateOperator(id, { status: newStatus });
   } catch (error) {
@@ -109,6 +135,12 @@ export const toggleOperatorStatus = async (id: string, currentStatus: 'active' |
 // 이메일로 운영자 조회
 export const getOperatorByEmail = async (email: string): Promise<Operator | null> => {
   try {
+    // Firebase가 초기화되지 않은 경우 null 반환
+    if (!db) {
+      console.warn('Firebase not initialized, returning null');
+      return null;
+    }
+
     const operatorsRef = collection(db, COLLECTION_NAME);
     const q = query(operatorsRef, where('email', '==', email));
     const querySnapshot = await getDocs(q);

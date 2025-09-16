@@ -42,6 +42,12 @@ const MENU_PERMISSION_GROUPS_COLLECTION = 'menuPermissionGroups';
 // 모든 메뉴 권한 조회
 export const getMenuPermissions = async (): Promise<MenuPermission[]> => {
   try {
+    // Firebase가 초기화되지 않은 경우 빈 배열 반환
+    if (!db) {
+      console.warn('Firebase not initialized, returning empty array');
+      return [];
+    }
+
     const menuPermissionsRef = collection(db, MENU_PERMISSIONS_COLLECTION);
     const q = query(menuPermissionsRef, orderBy('menuPath', 'asc'));
     const querySnapshot = await getDocs(q);
@@ -52,6 +58,11 @@ export const getMenuPermissions = async (): Promise<MenuPermission[]> => {
     })) as MenuPermission[];
   } catch (error) {
     console.error('Error getting menu permissions:', error);
+    // Firebase 연결 오류 시 빈 배열 반환
+    if (error instanceof Error && (error.message.includes('Firestore') || error.message.includes('network'))) {
+      console.warn('Firestore connection failed, returning empty array');
+      return [];
+    }
     throw error;
   }
 };
@@ -59,6 +70,11 @@ export const getMenuPermissions = async (): Promise<MenuPermission[]> => {
 // 메뉴 권한 생성
 export const createMenuPermission = async (permissionData: Omit<MenuPermission, 'id' | 'createDate'>): Promise<string> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const menuPermissionsRef = collection(db, MENU_PERMISSIONS_COLLECTION);
     const newPermission = {
       ...permissionData,
@@ -77,6 +93,11 @@ export const createMenuPermission = async (permissionData: Omit<MenuPermission, 
 // 메뉴 권한 업데이트
 export const updateMenuPermission = async (id: string, permissionData: Partial<MenuPermission>): Promise<void> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const permissionRef = doc(db, MENU_PERMISSIONS_COLLECTION, id);
     const updateData = {
       ...permissionData,
@@ -93,6 +114,12 @@ export const updateMenuPermission = async (id: string, permissionData: Partial<M
 // 그룹별 메뉴 권한 조회
 export const getMenuPermissionGroups = async (): Promise<MenuPermissionGroup[]> => {
   try {
+    // Firebase가 초기화되지 않은 경우 빈 배열 반환
+    if (!db) {
+      console.warn('Firebase not initialized, returning empty array');
+      return [];
+    }
+
     const menuPermissionGroupsRef = collection(db, MENU_PERMISSION_GROUPS_COLLECTION);
     const q = query(menuPermissionGroupsRef, orderBy('createDate', 'desc'));
     const querySnapshot = await getDocs(q);
@@ -103,6 +130,11 @@ export const getMenuPermissionGroups = async (): Promise<MenuPermissionGroup[]> 
     })) as MenuPermissionGroup[];
   } catch (error) {
     console.error('Error getting menu permission groups:', error);
+    // Firebase 연결 오류 시 빈 배열 반환
+    if (error instanceof Error && (error.message.includes('Firestore') || error.message.includes('network'))) {
+      console.warn('Firestore connection failed, returning empty array');
+      return [];
+    }
     throw error;
   }
 };
@@ -110,6 +142,11 @@ export const getMenuPermissionGroups = async (): Promise<MenuPermissionGroup[]> 
 // 그룹별 메뉴 권한 생성/업데이트
 export const upsertMenuPermissionGroup = async (groupId: string, groupName: string, permissions: Record<string, { create: boolean; view: boolean; edit: boolean; delete: boolean }>): Promise<string> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     // 기존 그룹 권한 조회
     const menuPermissionGroupsRef = collection(db, MENU_PERMISSION_GROUPS_COLLECTION);
     const q = query(menuPermissionGroupsRef, where('groupId', '==', groupId));
@@ -145,6 +182,11 @@ export const upsertMenuPermissionGroup = async (groupId: string, groupName: stri
 // 그룹별 메뉴 권한 삭제
 export const deleteMenuPermissionGroup = async (groupId: string): Promise<void> => {
   try {
+    // Firebase가 초기화되지 않은 경우 오류 발생
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     const menuPermissionGroupsRef = collection(db, MENU_PERMISSION_GROUPS_COLLECTION);
     const q = query(menuPermissionGroupsRef, where('groupId', '==', groupId));
     const querySnapshot = await getDocs(q);
