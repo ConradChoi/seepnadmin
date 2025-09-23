@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMembers, subscribeToMembers, updateMemberStatus, Member, MemberFilterOptions, MemberStatus } from "@/lib/memberService";
+import { getMembers, updateMemberStatus, Member, MemberFilterOptions, MemberStatus } from "@/lib/memberService";
 
 export default function MembersPage() {
   const router = useRouter();
@@ -27,11 +27,10 @@ export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
   const [updating, setUpdating] = useState<string | null>(null); // 업데이트 중인 회원 ID
 
   // Firebase에서 회원 데이터 가져오기 (일회성)
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -53,58 +52,21 @@ export default function MembersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, dateType, dateRange, startDate, endDate]);
 
-  // 실시간 구독 설정
-  const setupRealtimeSubscription = useCallback(() => {
-    // 기존 구독 해제
-    if (unsubscribe) {
-      unsubscribe();
-    }
-
-    const filterOptions: MemberFilterOptions = {
-      searchTerm: searchTerm || undefined,
-      status: statusFilter === "all" ? undefined : statusFilter,
-      dateType,
-      dateRange: dateRange === "all" ? undefined : dateRange,
-      startDate: dateRange === "custom" ? startDate : undefined,
-      endDate: dateRange === "custom" ? endDate : undefined,
-    };
-
-    const unsubscribeFn = subscribeToMembers((membersData) => {
-      setMembers(membersData);
-      setLoading(false);
-      setError(null);
-    }, filterOptions);
-
-    if (unsubscribeFn) {
-      setUnsubscribe(() => unsubscribeFn);
-    } else {
-      // 실시간 구독이 실패한 경우 일회성 데이터 가져오기로 폴백
-      fetchMembers();
-    }
-  }, [searchTerm, statusFilter, dateType, dateRange, startDate, endDate, unsubscribe]);
-
-  // 컴포넌트 마운트 시 실시간 구독 설정
+  // 컴포넌트 마운트 시 데이터 가져오기
   useEffect(() => {
-    setupRealtimeSubscription();
+    fetchMembers();
+  }, [fetchMembers]);
 
-    // 컴포넌트 언마운트 시 구독 해제
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [setupRealtimeSubscription]);
-
-  // 필터 변경 시 실시간 구독 재설정
+  // 필터 변경 시 데이터 다시 가져오기
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setupRealtimeSubscription();
+      fetchMembers();
     }, 300); // 300ms 디바운스
 
     return () => clearTimeout(timeoutId);
-  }, [setupRealtimeSubscription]);
+  }, [fetchMembers]);
 
   // 상세 페이지로 이동
   const handleViewDetail = (memberId: string) => {
@@ -118,7 +80,8 @@ export default function MembersPage() {
       console.log('Updating member status:', memberId, newStatus);
       await updateMemberStatus(memberId, newStatus);
       console.log('Member status updated successfully');
-      // 실시간 구독이 자동으로 데이터를 업데이트하므로 별도로 fetchMembers 호출 불필요
+      // 상태 업데이트 후 데이터 다시 가져오기
+      await fetchMembers();
     } catch (err) {
       console.error('Error updating member status:', err);
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
@@ -322,7 +285,7 @@ export default function MembersPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={setupRealtimeSubscription}
+                  onClick={fetchMembers}
                   disabled={loading}
                 >
                   새로고침
