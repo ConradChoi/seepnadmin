@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,97 +10,125 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getMembers, subscribeToMembers, updateMemberStatus, Member, MemberFilterOptions, MemberStatus } from "@/lib/memberService";
 
 export default function MembersPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateType, setDateType] = useState("register"); // 등록일 or 최근 로그인일
+  const [statusFilter, setStatusFilter] = useState<MemberStatus | "all">("all");
+  const [dateType, setDateType] = useState<"register" | "login">("register"); // 등록일 or 최근 로그인일
   const [dateRange, setDateRange] = useState("all"); // 전체, 7일, 1개월, 3개월, 6개월, 1년, 직접입력
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showPersonalInfo, setShowPersonalInfo] = useState(false); // 개인정보보기 상태
+  
+  // Firebase 데이터 상태
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null); // 업데이트 중인 회원 ID
 
-  // 샘플 데이터 (최근 가입자가 위로 오도록 정렬 - 가입일시 기준 내림차순)
-  const members = [
-    { id: 6, name: "한새봄", email: "han@example.com", phone: "010-9999-8888", status: "active", joinDate: "2024-01-22 10:15:30", lastLogin: "2024-01-22 14:20:15" },
-    { id: 5, name: "정현우", email: "jung@example.com", phone: "010-5678-9012", status: "suspended", joinDate: "2024-01-20 14:30:25", lastLogin: "2024-01-19 09:15:42" },
-    { id: 4, name: "최지영", email: "choi@example.com", phone: "010-4567-8901", status: "active", joinDate: "2024-01-18 11:22:18", lastLogin: "2024-01-20 16:45:33" },
-    { id: 3, name: "박민수", email: "park@example.com", phone: "010-3456-7890", status: "inactive", joinDate: "2024-01-15 16:45:12", lastLogin: "2024-01-14 13:20:55" },
-    { id: 2, name: "이영희", email: "lee@example.com", phone: "010-2345-6789", status: "active", joinDate: "2024-01-12 09:30:45", lastLogin: "2024-01-20 10:25:18" },
-    { id: 1, name: "김철수", email: "kim@example.com", phone: "010-1234-5678", status: "active", joinDate: "2024-01-10 13:15:30", lastLogin: "2024-01-19 15:40:22" },
-  ];
-
-  // 날짜 범위 계산 함수
-  const getDateRange = (range: string) => {
-    const today = new Date();
-    const start = new Date();
-    
-    switch (range) {
-      case "7days":
-        start.setDate(today.getDate() - 7);
-        break;
-      case "1month":
-        start.setMonth(today.getMonth() - 1);
-        break;
-      case "3months":
-        start.setMonth(today.getMonth() - 3);
-        break;
-      case "6months":
-        start.setMonth(today.getMonth() - 6);
-        break;
-      case "1year":
-        start.setFullYear(today.getFullYear() - 1);
-        break;
-      default:
-        return null;
-    }
-    
-    return { start: start.toISOString().split('T')[0], end: today.toISOString().split('T')[0] };
-  };
-
-  const filteredMembers = members.filter(member => {
-    const matchesSearch = member.name.includes(searchTerm) || member.email.includes(searchTerm) || member.phone.includes(searchTerm);
-    const matchesStatus = statusFilter === "all" || member.status === statusFilter;
-    
-    // 날짜 필터링
-    let matchesDate = true;
-    if (dateRange !== "all") {
-      let targetDate = "";
-      if (dateType === "register") {
-        targetDate = member.joinDate.split(' ')[0]; // 날짜 부분만 추출
-      } else {
-        targetDate = member.lastLogin.split(' ')[0]; // 날짜 부분만 추출
-      }
+  // Firebase에서 회원 데이터 가져오기 (일회성)
+  const fetchMembers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      if (dateRange === "custom") {
-        // 직접입력
-        if (startDate && endDate) {
-          matchesDate = targetDate >= startDate && targetDate <= endDate;
-        }
-      } else {
-        // 미리 정의된 기간
-        const range = getDateRange(dateRange);
-        if (range) {
-          matchesDate = targetDate >= range.start && targetDate <= range.end;
-        }
-      }
-    }
-    
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge variant="default">정상</Badge>;
-      case "inactive":
-        return <Badge variant="secondary">중지</Badge>;
-      case "suspended":
-        return <Badge variant="destructive">탈퇴</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      const filterOptions: MemberFilterOptions = {
+        searchTerm: searchTerm || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        dateType,
+        dateRange: dateRange === "all" ? undefined : dateRange,
+        startDate: dateRange === "custom" ? startDate : undefined,
+        endDate: dateRange === "custom" ? endDate : undefined,
+      };
+      
+      const membersData = await getMembers(filterOptions);
+      setMembers(membersData);
+    } catch (err) {
+      console.error('Error fetching members:', err);
+      setError('회원 데이터를 가져오는 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // 실시간 구독 설정
+  const setupRealtimeSubscription = () => {
+    // 기존 구독 해제
+    if (unsubscribe) {
+      unsubscribe();
+    }
+
+    const filterOptions: MemberFilterOptions = {
+      searchTerm: searchTerm || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      dateType,
+      dateRange: dateRange === "all" ? undefined : dateRange,
+      startDate: dateRange === "custom" ? startDate : undefined,
+      endDate: dateRange === "custom" ? endDate : undefined,
+    };
+
+    const unsubscribeFn = subscribeToMembers((membersData) => {
+      setMembers(membersData);
+      setLoading(false);
+      setError(null);
+    }, filterOptions);
+
+    if (unsubscribeFn) {
+      setUnsubscribe(() => unsubscribeFn);
+    } else {
+      // 실시간 구독이 실패한 경우 일회성 데이터 가져오기로 폴백
+      fetchMembers();
+    }
+  };
+
+  // 컴포넌트 마운트 시 실시간 구독 설정
+  useEffect(() => {
+    setupRealtimeSubscription();
+
+    // 컴포넌트 언마운트 시 구독 해제
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // 필터 변경 시 실시간 구독 재설정
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setupRealtimeSubscription();
+    }, 300); // 300ms 디바운스
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter, dateType, dateRange, startDate, endDate]);
+
+  // 상세 페이지로 이동
+  const handleViewDetail = (memberId: string) => {
+    router.push(`/members/${memberId}`);
+  };
+
+  // 회원 상태 업데이트
+  const handleStatusUpdate = async (memberId: string, newStatus: MemberStatus) => {
+    try {
+      setUpdating(memberId);
+      console.log('Updating member status:', memberId, newStatus);
+      await updateMemberStatus(memberId, newStatus);
+      console.log('Member status updated successfully');
+      // 실시간 구독이 자동으로 데이터를 업데이트하므로 별도로 fetchMembers 호출 불필요
+    } catch (err) {
+      console.error('Error updating member status:', err);
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+      setError(`회원 상태를 업데이트하는 중 오류가 발생했습니다: ${errorMessage}`);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
 
   // 마스킹 함수들
   const maskEmail = (email: string) => {
@@ -120,7 +149,7 @@ export default function MembersPage() {
       } else if (name.length === 2) {
         return `${name[0]}*`;
       } else {
-        return `${name[0]}${'*'.repeat(name.length - 2)}${name[name.length - 1]}`;
+        return `${name[0]}${'*'.repeat(Math.max(0, name.length - 2))}${name[name.length - 1]}`;
       }
     }
     return name;
@@ -135,6 +164,20 @@ export default function MembersPage() {
       return phone;
     }
     return phone;
+  };
+
+  // 날짜 포맷팅 함수
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
   };
 
   // 초기화 함수
@@ -167,7 +210,7 @@ export default function MembersPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label htmlFor="dateType">기간 검색</Label>
-                  <Select value={dateType} onValueChange={setDateType}>
+                  <Select value={dateType} onValueChange={(value: "register" | "login") => setDateType(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="기간 선택" />
                     </SelectTrigger>
@@ -231,7 +274,7 @@ export default function MembersPage() {
                 </div>
                 <div>
                   <Label htmlFor="status">상태</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={(value: MemberStatus | "all") => setStatusFilter(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="상태 선택" />
                     </SelectTrigger>
@@ -254,13 +297,22 @@ export default function MembersPage() {
           </CardContent>
         </Card>
 
+        {/* 에러 메시지 */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         {/* 회원 목록 */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>회원 목록</CardTitle>
-                <CardDescription>총 {filteredMembers.length}명의 회원</CardDescription>
+                <CardDescription>
+                  {loading ? "로딩 중..." : `총 ${members.length}명의 회원`}
+                </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button 
@@ -269,51 +321,100 @@ export default function MembersPage() {
                 >
                   {showPersonalInfo ? "개인정보 숨기기" : "개인정보보기"}
                 </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={setupRealtimeSubscription}
+                  disabled={loading}
+                >
+                  새로고침
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>NO</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>이름</TableHead>
-                  <TableHead>휴대번호</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>가입일시</TableHead>
-                  <TableHead>최근로그인일시</TableHead>
-                  <TableHead>작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMembers.length > 0 ? (
-                  filteredMembers.map((member, index) => (
-                    <TableRow key={member.id}>
-                      <TableCell>{filteredMembers.length - index}</TableCell>
-                      <TableCell className="font-medium">{maskEmail(member.email)}</TableCell>
-                      <TableCell>{maskName(member.name)}</TableCell>
-                      <TableCell>{maskPhone(member.phone)}</TableCell>
-                      <TableCell>{getStatusBadge(member.status)}</TableCell>
-                      <TableCell>{member.joinDate}</TableCell>
-                      <TableCell>{member.lastLogin}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">상세</Button>
-                          <Button variant="outline" size="sm">수정</Button>
-                        </div>
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>NO</TableHead>
+                    <TableHead>이메일</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead>휴대번호</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>가입일시</TableHead>
+                    <TableHead>최근로그인일시</TableHead>
+                    <TableHead>작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.length > 0 ? (
+                    members.map((member, index) => (
+                      <TableRow key={member.id}>
+                        <TableCell>{members.length - index}</TableCell>
+                        <TableCell className="font-medium">{maskEmail(member.email)}</TableCell>
+                        <TableCell>{maskName(member.name)}</TableCell>
+                        <TableCell>{maskPhone(member.phone)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={member.status}
+                              onValueChange={(value: MemberStatus) => handleStatusUpdate(member.id, value)}
+                              disabled={updating === member.id}
+                            >
+                              <SelectTrigger className="w-24">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="active">정상</SelectItem>
+                                <SelectItem value="inactive">중지</SelectItem>
+                                <SelectItem value="suspended">탈퇴</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {updating === member.id && (
+                              <div className="text-xs text-gray-500">업데이트 중...</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(member.joinDate)}</TableCell>
+                        <TableCell>{formatDateTime(member.lastLogin)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewDetail(member.id)}
+                            >
+                              상세
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                        {error ? "데이터를 불러올 수 없습니다." : "검색된 데이터가 없습니다."}
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                      검색된 데이터가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
