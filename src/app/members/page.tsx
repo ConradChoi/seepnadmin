@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,7 +56,7 @@ export default function MembersPage() {
   };
 
   // 실시간 구독 설정
-  const setupRealtimeSubscription = () => {
+  const setupRealtimeSubscription = useCallback(() => {
     // 기존 구독 해제
     if (unsubscribe) {
       unsubscribe();
@@ -84,7 +83,7 @@ export default function MembersPage() {
       // 실시간 구독이 실패한 경우 일회성 데이터 가져오기로 폴백
       fetchMembers();
     }
-  };
+  }, [searchTerm, statusFilter, dateType, dateRange, startDate, endDate, unsubscribe]);
 
   // 컴포넌트 마운트 시 실시간 구독 설정
   useEffect(() => {
@@ -96,7 +95,7 @@ export default function MembersPage() {
         unsubscribe();
       }
     };
-  }, []);
+  }, [setupRealtimeSubscription]);
 
   // 필터 변경 시 실시간 구독 재설정
   useEffect(() => {
@@ -105,7 +104,7 @@ export default function MembersPage() {
     }, 300); // 300ms 디바운스
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, dateType, dateRange, startDate, endDate]);
+  }, [setupRealtimeSubscription]);
 
   // 상세 페이지로 이동
   const handleViewDetail = (memberId: string) => {

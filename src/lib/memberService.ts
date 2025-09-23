@@ -6,14 +6,10 @@ import {
   getDocs, 
   doc, 
   updateDoc, 
-  deleteDoc,
   onSnapshot,
   Unsubscribe,
-  Timestamp,
-  QueryConstraint,
-  DocumentData
+  Timestamp
 } from 'firebase/firestore';
-import { getAuth, updateUserProfile } from 'firebase/auth';
 import { db } from './firebase';
 
 // 회원 데이터 타입 정의
@@ -352,7 +348,6 @@ export const getMemberById = async (memberId: string): Promise<Member | null> =>
       throw new Error('Firebase is not initialized');
     }
 
-    const memberRef = doc(db, 'users', memberId);
     const memberDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', memberId)));
     
     if (memberDoc.empty) {

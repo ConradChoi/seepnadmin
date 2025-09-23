@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import AdminLayout from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export default function MemberDetailPage() {
   const [editedStatus, setEditedStatus] = useState<MemberStatus>("active");
 
   // 회원 정보 가져오기
-  const fetchMember = async () => {
+  const fetchMember = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -45,13 +45,13 @@ export default function MemberDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [memberId]);
 
   useEffect(() => {
     if (memberId) {
       fetchMember();
     }
-  }, [memberId]);
+  }, [memberId, fetchMember]);
 
   // 상태 업데이트
   const handleStatusUpdate = async () => {
