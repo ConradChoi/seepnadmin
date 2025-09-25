@@ -137,18 +137,63 @@ export const generateCategoryCode = async (category1Depth: string, category2Dept
       throw new Error('Firebase not initialized');
     }
 
-    // 1Depth의 첫 글자 + 2Depth의 첫 글자 + 3Depth의 첫 글자 + 3자리 숫자
-    const prefix = category1Depth.charAt(0) + category2Depth.charAt(0) + category3Depth.charAt(0);
-    
-    // 해당 prefix로 시작하는 카테고리 개수 조회
     const categoriesRef = collection(db, COLLECTION_NAME);
-    const q = query(categoriesRef, where('categoryCode', '>=', prefix), where('categoryCode', '<', prefix + 'z'));
-    const querySnapshot = await getDocs(q);
     
-    const count = querySnapshot.size + 1;
-    const paddedCount = count.toString().padStart(3, '0');
+    // 1Depth 카테고리 코드 생성
+    if (!category2Depth || category2Depth.trim() === '') {
+      // 1Depth: 01, 02, 03...
+      // 전체 1Depth 카테고리 개수를 기준으로 순차 번호 생성
+      const q1Depth = query(categoriesRef, where('category2Depth', '==', ''), where('category3Depth', '==', ''));
+      const snapshot1Depth = await getDocs(q1Depth);
+      const count1Depth = snapshot1Depth.size + 1;
+      return count1Depth.toString().padStart(2, '0');
+    }
     
-    return `${prefix.toUpperCase()}${paddedCount}`;
+    // 2Depth 카테고리 코드 생성
+    if (!category3Depth || category3Depth.trim() === '') {
+      // 2Depth: 01-001, 01-002, 02-001...
+      // 부모 1Depth 카테고리 찾기
+      const q1Depth = query(categoriesRef, where('category1Depth', '==', category1Depth), where('category2Depth', '==', ''));
+      const snapshot1Depth = await getDocs(q1Depth);
+      
+      if (snapshot1Depth.empty) {
+        throw new Error(`Parent 1Depth category not found: ${category1Depth}`);
+      }
+      
+      const parentCategory = snapshot1Depth.docs[0].data() as CategoryItem;
+      const parentCode = parentCategory.categoryCode;
+      
+      // 같은 1Depth 하위의 모든 2Depth 카테고리 개수 조회
+      const q2Depth = query(categoriesRef, where('category1Depth', '==', category1Depth), where('category2Depth', '!=', ''), where('category3Depth', '==', ''));
+      const snapshot2Depth = await getDocs(q2Depth);
+      const count2Depth = snapshot2Depth.size + 1;
+      
+      return `${parentCode}-${count2Depth.toString().padStart(3, '0')}`;
+    }
+    
+    // 3Depth 카테고리 코드 생성
+    if (category3Depth && category3Depth.trim() !== '') {
+      // 3Depth: 01-001-001, 01-001-002, 01-002-001...
+      // 부모 2Depth 카테고리 찾기
+      const q2Depth = query(categoriesRef, where('category1Depth', '==', category1Depth), where('category2Depth', '==', category2Depth), where('category3Depth', '==', ''));
+      const snapshot2Depth = await getDocs(q2Depth);
+      
+      if (snapshot2Depth.empty) {
+        throw new Error(`Parent 2Depth category not found: ${category1Depth} > ${category2Depth}`);
+      }
+      
+      const parentCategory = snapshot2Depth.docs[0].data() as CategoryItem;
+      const parentCode = parentCategory.categoryCode;
+      
+      // 같은 2Depth 하위의 모든 3Depth 카테고리 개수 조회
+      const q3Depth = query(categoriesRef, where('category1Depth', '==', category1Depth), where('category2Depth', '==', category2Depth), where('category3Depth', '!=', ''));
+      const snapshot3Depth = await getDocs(q3Depth);
+      const count3Depth = snapshot3Depth.size + 1;
+      
+      return `${parentCode}-${count3Depth.toString().padStart(3, '0')}`;
+    }
+    
+    throw new Error('Invalid category depth configuration');
   } catch (error) {
     console.error('Error generating category code:', error);
     throw error;
